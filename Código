@@ -1,0 +1,264 @@
+/*
+ *Universidad del Valle de Guatemala
+ * BE3029 - Electrónica Digital 2
+ * Fabiola Caballeros 24927
+ * Laboratorio 5: ISR y UART en STM32
+ */
+
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+/* USER CODE END Includes */
+
+/* Private variables ---------------------------------------------------------*/
+UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
+
+/* USER CODE BEGIN PV */
+uint8_t buffer[10];
+uint8_t temp[2];
+uint8_t indx = 0;
+
+volatile uint8_t contadorJ1 = 0;
+volatile uint8_t contadorJ2 = 0;
+uint32_t tiempoAnteriorJ1 = 0;
+uint32_t tiempoAnteriorJ2 = 0;
+
+volatile uint8_t semaforoON = 0;
+volatile uint8_t semaforoOFF = 0;
+
+
+//GPIO_PinState estadoactualJ1; //variables para botones (lectura y antirrebote)
+//GPIO_PinState nuevoestadoJ1 = GPIO_PIN_RESET;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_USART3_UART_Init(void);
+/* USER CODE BEGIN PFP */
+void semaforo(void); //prototipos de funciones
+void contadorDecadas(void);
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+int main(void)
+{
+
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART2_UART_Init();
+  MX_USART3_UART_Init();
+  /* USER CODE BEGIN 2 */
+  HAL_UART_Receive_IT(&huart2, buffer, 1);
+  contadorJ1 = 0;
+  contadorJ2 = 0;
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+
+	  contadorDecadas();
+
+	  if (semaforoON == 1){
+	         semaforoON = 0;
+	         semaforoOFF = 0;
+
+	         contadorJ1 = 0;
+	         contadorJ2 = 0;
+
+	         semaforo();
+	   }
+
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// FUNCIONES
+//////////////////////////////////////////////////////////////////////////////////////
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+
+	    if (buffer[0] == 'S') //espera a recibir la s para iniciar programa
+	    {
+	        semaforoON = 1;
+	    }
+	    HAL_UART_Receive_IT(&huart2, buffer, 1); //prepara para recibir otro caracter
+}
+
+void semaforo(void){ //función de activación de semáforo
+
+    // ROJO
+    HAL_GPIO_WritePin(Lroja_GPIO_Port, Lroja_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(Lamarilla_GPIO_Port, Lamarilla_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(Lverde_GPIO_Port, Lverde_Pin, GPIO_PIN_RESET);
+
+    HAL_Delay(1000);
+
+    // AMARILLO
+    HAL_GPIO_WritePin(Lroja_GPIO_Port, Lroja_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(Lamarilla_GPIO_Port, Lamarilla_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(Lverde_GPIO_Port, Lverde_Pin, GPIO_PIN_RESET);
+
+    HAL_Delay(1000);
+
+    // VERDE
+    HAL_GPIO_WritePin(Lroja_GPIO_Port, Lroja_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(Lamarilla_GPIO_Port, Lamarilla_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(Lverde_GPIO_Port, Lverde_Pin, GPIO_PIN_SET);
+
+    HAL_Delay(1000);
+
+    // Apagar
+    HAL_GPIO_WritePin(Lroja_GPIO_Port, Lroja_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(Lamarilla_GPIO_Port, Lamarilla_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(Lverde_GPIO_Port, Lverde_Pin, GPIO_PIN_RESET);
+
+    semaforoOFF = 1; //avisa que se terminó la secuencia
+}
+
+void contadorDecadas(void){ //funcion de contador
+
+	switch(contadorJ1){
+
+	case 0:
+		HAL_GPIO_WritePin(L1J1_GPIO_Port, L1J1_Pin, GPIO_PIN_RESET); // todos apagados
+		HAL_GPIO_WritePin(L2J1_GPIO_Port, L2J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L3J1_GPIO_Port, L3J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L4J1_GPIO_Port, L4J1_Pin, GPIO_PIN_RESET);
+		break;
+	case 1:
+		HAL_GPIO_WritePin(L1J1_GPIO_Port, L1J1_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(L2J1_GPIO_Port, L2J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L3J1_GPIO_Port, L3J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L4J1_GPIO_Port, L4J1_Pin, GPIO_PIN_RESET);
+		break;
+	case 2:
+		HAL_GPIO_WritePin(L1J1_GPIO_Port, L1J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L2J1_GPIO_Port, L2J1_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(L3J1_GPIO_Port, L3J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L4J1_GPIO_Port, L4J1_Pin, GPIO_PIN_RESET);
+		break;
+	case 3:
+		HAL_GPIO_WritePin(L1J1_GPIO_Port, L1J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L2J1_GPIO_Port, L2J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L3J1_GPIO_Port, L3J1_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(L4J1_GPIO_Port, L4J1_Pin, GPIO_PIN_RESET);
+		break;
+	case 4:
+		HAL_GPIO_WritePin(L1J1_GPIO_Port, L1J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L2J1_GPIO_Port, L2J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L3J1_GPIO_Port, L3J1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L4J1_GPIO_Port, L4J1_Pin, GPIO_PIN_SET);
+		break;
+	}
+
+
+    switch(contadorJ2){
+
+    case 0:
+    	HAL_GPIO_WritePin(L1J2_GPIO_Port, L1J2_Pin, GPIO_PIN_RESET); // todos apagados
+	    HAL_GPIO_WritePin(L2J2_GPIO_Port, L2J2_Pin, GPIO_PIN_RESET);
+	    HAL_GPIO_WritePin(L3J2_GPIO_Port, L3J2_Pin, GPIO_PIN_RESET);
+	    HAL_GPIO_WritePin(L4J2_GPIO_Port, L4J2_Pin, GPIO_PIN_RESET);
+	    break;
+
+    case 1:
+        HAL_GPIO_WritePin(L1J2_GPIO_Port, L1J2_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(L2J2_GPIO_Port, L2J2_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(L3J2_GPIO_Port, L3J2_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(L4J2_GPIO_Port, L4J2_Pin, GPIO_PIN_RESET);
+        break;
+	case 2:
+        HAL_GPIO_WritePin(L1J2_GPIO_Port, L1J2_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(L2J2_GPIO_Port, L2J2_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(L3J2_GPIO_Port, L3J2_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(L4J2_GPIO_Port, L4J2_Pin, GPIO_PIN_RESET);
+        break;
+    case 3:
+        HAL_GPIO_WritePin(L1J2_GPIO_Port, L1J2_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(L2J2_GPIO_Port, L2J2_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(L3J2_GPIO_Port, L3J2_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(L4J2_GPIO_Port, L4J2_Pin, GPIO_PIN_RESET);
+        break;
+	case 4:
+		HAL_GPIO_WritePin(L1J2_GPIO_Port, L1J2_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L2J2_GPIO_Port, L2J2_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L3J2_GPIO_Port, L3J2_Pin, GPIO_PIN_RESET);
+	    HAL_GPIO_WritePin(L4J2_GPIO_Port, L4J2_Pin, GPIO_PIN_SET);
+	    break;
+    }
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+
+	if (GPIO_Pin == BotonJ1_Pin){ //boton jugador 1
+
+        if (semaforoOFF == 1){
+
+            if ((HAL_GetTick() - tiempoAnteriorJ1) > 200){  //antirrebote
+                contadorJ1++;
+
+                if (contadorJ1 > 4){
+                    contadorJ1 = 4;
+                }
+
+                tiempoAnteriorJ1 = HAL_GetTick();
+            }
+        }
+    }
+
+    if (GPIO_Pin == BotonJ2_Pin){ //boton jugador 2
+
+           if (semaforoOFF == 1){
+
+               if ((HAL_GetTick() - tiempoAnteriorJ2) > 200){  //antirrebote
+                   contadorJ2++;
+
+                   if (contadorJ2 > 4){
+                       contadorJ2 = 4;
+                   }
+
+                   tiempoAnteriorJ2 = HAL_GetTick();
+               }
+           }
+       }
+}
+
+/* USER CODE END 4 */
