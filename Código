@@ -32,6 +32,9 @@ uint32_t tiempoAnteriorJ2 = 0;
 volatile uint8_t semaforoON = 0;
 volatile uint8_t semaforoOFF = 0;
 
+volatile uint8_t GameStart = 1;
+volatile uint8_t GameOver = 0;
+
 
 //GPIO_PinState estadoactualJ1; //variables para botones (lectura y antirrebote)
 //GPIO_PinState nuevoestadoJ1 = GPIO_PIN_RESET;
@@ -83,24 +86,49 @@ int main(void)
   HAL_UART_Receive_IT(&huart2, buffer, 1);
   contadorJ1 = 0;
   contadorJ2 = 0;
+  GameStart = 0;
+  GameOver = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+contadorDecadas();
 
-	  contadorDecadas();
 
-	  if (semaforoON == 1){
+	  if(((contadorJ1 == 4)||(contadorJ2 == 4))&& GameOver == 0){ //detección del ganador
+
+//		  contadorDecadas();
+//		  HAL_Delay(1000);
+
+		  GameOver = 1;
+		  GameStart = 0;
+
+		  if(contadorJ1 == 4){
+			  uint8_t mensaje[] = "Jugador 1 gana\r\n";
+
+			  HAL_UART_Transmit(&huart2, mensaje, sizeof(mensaje) -1, 100);
+		  }
+		  else if(contadorJ2 == 4){
+			  uint8_t mensaje[] = "Jugador 2 gana\r\n";
+
+			  HAL_UART_Transmit(&huart2, mensaje, sizeof(mensaje) -1, 100);
+		  }
+	  }
+
+	  if (semaforoON == 1){ //inicio nueva partida
 	         semaforoON = 0;
 	         semaforoOFF = 0;
 
 	         contadorJ1 = 0;
 	         contadorJ2 = 0;
 
+	         GameOver = 0;
+
 	         semaforo();
 	   }
+
 
     /* USER CODE END WHILE */
 
@@ -113,13 +141,21 @@ int main(void)
 // FUNCIONES
 //////////////////////////////////////////////////////////////////////////////////////
 
+/* USER CODE BEGIN 4 */
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 
-	    if (buffer[0] == 'S') //espera a recibir la s para iniciar programa
-	    {
-	        semaforoON = 1;
+	    if (buffer[0] == 'S'){ //espera a recibir la s para iniciar programa
+
+	    	if(GameStart == 0){ //se habilita solo si no hay jugadores en medio de un juego
+	    		semaforoON = 1;
+//	    		contadorJ1 = 0;
+//	    		contadorJ2 = 0;
+
+	    	}
 	    }
 	    HAL_UART_Receive_IT(&huart2, buffer, 1); //prepara para recibir otro caracter
+
 }
 
 void semaforo(void){ //función de activación de semáforo
@@ -151,6 +187,7 @@ void semaforo(void){ //función de activación de semáforo
     HAL_GPIO_WritePin(Lverde_GPIO_Port, Lverde_Pin, GPIO_PIN_RESET);
 
     semaforoOFF = 1; //avisa que se terminó la secuencia
+    GameStart = 1; //habilita el indicador de juego iniciado
 }
 
 void contadorDecadas(void){ //funcion de contador
@@ -228,37 +265,35 @@ void contadorDecadas(void){ //funcion de contador
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
-	if (GPIO_Pin == BotonJ1_Pin){ //boton jugador 1
+	if (GPIO_Pin == BotonJ1_Pin){
+	        if (GameStart == 1){
+	            if ((HAL_GetTick() - tiempoAnteriorJ1) > 200){
+	                contadorJ1++;
 
-        if (semaforoOFF == 1){
+	                if (contadorJ1 >= 4){
+	                    contadorJ1 = 4;
+	                    GameStart = 0;
+	                }
 
-            if ((HAL_GetTick() - tiempoAnteriorJ1) > 200){  //antirrebote
-                contadorJ1++;
+	                tiempoAnteriorJ1 = HAL_GetTick();
+	            }
+	        }
+	    }
 
-                if (contadorJ1 > 4){
-                    contadorJ1 = 4;
-                }
+	if (GPIO_Pin == BotonJ2_Pin){
+		        if (GameStart == 1){
+		            if ((HAL_GetTick() - tiempoAnteriorJ2) > 200){
+		                contadorJ2++;
 
-                tiempoAnteriorJ1 = HAL_GetTick();
-            }
-        }
-    }
+		                if (contadorJ2 >= 4){
+		                    contadorJ2 = 4;
+		                    GameStart = 0;
+		                }
 
-    if (GPIO_Pin == BotonJ2_Pin){ //boton jugador 2
-
-           if (semaforoOFF == 1){
-
-               if ((HAL_GetTick() - tiempoAnteriorJ2) > 200){  //antirrebote
-                   contadorJ2++;
-
-                   if (contadorJ2 > 4){
-                       contadorJ2 = 4;
-                   }
-
-                   tiempoAnteriorJ2 = HAL_GetTick();
-               }
-           }
-       }
+		                tiempoAnteriorJ2 = HAL_GetTick();
+		            }
+		        }
+		    }
 }
 
 /* USER CODE END 4 */
